@@ -1,5 +1,3 @@
-<?php
-
     /**
      * Calcula las estructuras de capitalización a partir de los arreglos
      * recibidos. Devuelve los saldos generados para el periodo actual y el
@@ -1813,7 +1811,6 @@
                             //Si se paga despues de la fecha1 y hasta la fecha2 el pago es parte del periodo
 							$resumenPeriodo['capital']['saldo_anterior']-=$capitalPagadoAnterior;
                             $resumenPeriodo['capital']['abonos']+=$capitalPagado;
-							}
                             $resumenPeriodo['mora']['abonos']+=$moraPagado;
                             $resumenPeriodo['iva_interes']['abonos']+=$ivaInteresPagado;
                             $resumenPeriodo['iva_mora']['abonos']+=$ivaMoraPagado;
