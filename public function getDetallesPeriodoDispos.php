@@ -478,7 +478,15 @@
         $saldoLinea['interes_pagado_capitalizable'] = $periodoInteresPagadoCap;
 
 
+        // Guarda el monto capitalizado del periodo. Este dato se utiliza
+        // para mostrar las capitalizaciones generadas en el estado de cuenta
+        // y hasta ahora no se encontraba disponible dentro del arreglo de
+        // saldo de línea, lo que provocaba que siempre se mostrara en cero.
+        // Se conserva la llave existente `interes_pagado_cap` por temas de
+        // compatibilidad pero se incluye la nueva llave `capitalizado` para
+        // hacer explícito el valor de capitalización devuelto.
         $saldoLinea['interes_pagado_cap'] = $periodoCapitalizado;
+        $saldoLinea['capitalizado'] = $periodoCapitalizado;
 
                                                                 
         $comisionesPeriodo=array(
