@@ -126,7 +126,8 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
                                         <td style="padding: 2px; margin: 0px;">Saldo Insoluto:</td>
                                         <td style="padding: 2px; margin: 0px; text-align: right;">
                                             <?php 
-                                            $saldoInsoluto = $detalles['saldo_linea']['capital'] 
+                                            $saldoInsoluto = $detalles['saldo_linea']['capital']
+                                                + $detalles['resumen_periodo']['interes']['capitalizado']
                                                 + ($detalles['saldo_linea']['interes_pagado'] - $detalles['saldo_linea']['interes_pagado_capitalizable']);
                                             echo number_format($saldoInsoluto, 2, ".", ",");
                                             ?>
@@ -139,9 +140,10 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
                                             $saldoFinMora = $detalles['resumen_periodo']['mora']['saldo_anterior'] 
                                                 + $detalles['resumen_periodo']['mora']['cargos'] 
                                                 - $detalles['resumen_periodo']['mora']['abonos'];
-                                            $saldoFinInteres = $detalles['resumen_periodo']['interes']['saldo_anterior'] 
-                                                + $detalles['resumen_periodo']['interes']['cargos'] 
-                                                - $detalles['resumen_periodo']['interes']['abonos'];
+                                            $saldoFinInteres = $detalles['resumen_periodo']['interes']['saldo_anterior']
+                                                + $detalles['resumen_periodo']['interes']['cargos']
+                                                - $detalles['resumen_periodo']['interes']['abonos']
+                                                - $detalles['resumen_periodo']['interes']['capitalizado'];
                                             $sumaIntereses = $saldoFinInteres + $saldoFinMora;
                                             echo number_format($sumaIntereses, 2, ".", ",");
                                             ?>
@@ -414,7 +416,9 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
                         <td style="text-align: right; padding: 0px;"><?php echo number_format(0, 2, ".", ","); ?></td>
                         <td style="text-align: right; padding: 0px;">
                             <?php 
-                            $saldoPeriodoCapital = $detalles['resumen_periodo']['capital']['cargos'] - $detalles['resumen_periodo']['capital']['abonos'];
+                            $saldoPeriodoCapital = $detalles['resumen_periodo']['capital']['cargos']
+                                - $detalles['resumen_periodo']['capital']['abonos']
+                                + $detalles['resumen_periodo']['interes']['capitalizado'];
                             if($saldoPeriodoCapital < 0) $saldoPeriodoCapital = 0;
                             echo number_format($saldoPeriodoCapital, 2, ".", ",");
                             ?>
@@ -432,14 +436,16 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
                         <td style="text-align: right; padding: 0px;">
                             <?php 
                             if($solicitud->nombre_tipo_pago == "Interes Capitalizable" || $solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) con Interes Capitalizable a Fin de Mes en días") {
-                                $saldoFinalCapital = $detalles['resumen_periodo']['capital']['saldo_anterior'] 
-                                    + ($detalles['saldo_linea']['interes_pagado'] - $detalles['saldo_linea']['interes_pagado_capitalizable']) 
-                                    + $detalles['resumen_periodo']['capital']['cargos'] 
-                                    - $detalles['resumen_periodo']['capital']['abonos'];
+                                $saldoFinalCapital = $detalles['resumen_periodo']['capital']['saldo_anterior']
+                                    + ($detalles['saldo_linea']['interes_pagado'] - $detalles['saldo_linea']['interes_pagado_capitalizable'])
+                                    + $detalles['resumen_periodo']['capital']['cargos']
+                                    - $detalles['resumen_periodo']['capital']['abonos']
+                                    + $detalles['resumen_periodo']['interes']['capitalizado'];
                             } else {
-                                $saldoFinalCapital = $detalles['resumen_periodo']['capital']['saldo_anterior'] 
-                                    + $detalles['resumen_periodo']['capital']['cargos'] 
-                                    - $detalles['resumen_periodo']['capital']['abonos'];
+                                $saldoFinalCapital = $detalles['resumen_periodo']['capital']['saldo_anterior']
+                                    + $detalles['resumen_periodo']['capital']['cargos']
+                                    - $detalles['resumen_periodo']['capital']['abonos']
+                                    + $detalles['resumen_periodo']['interes']['capitalizado'];
                             }
                             if($saldoFinalCapital <= 0) $saldoFinalCapital = 0;
                             echo number_format($saldoFinalCapital, 2, ".", ",");
@@ -453,7 +459,9 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
                         <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['interes']['capitalizado'], 2, ".", ","); ?></td>
                         <td style="text-align: right; padding: 0px;">
                             <?php 
-                            $saldoPeriodoInteres = $detalles['resumen_periodo']['interes']['cargos'] - $detalles['resumen_periodo']['interes']['abonos'];
+                            $saldoPeriodoInteres = $detalles['resumen_periodo']['interes']['cargos']
+                                - $detalles['resumen_periodo']['interes']['abonos']
+                                - $detalles['resumen_periodo']['interes']['capitalizado'];
                             if($saldoPeriodoInteres < 0) $saldoPeriodoInteres = 0;
                             echo number_format($saldoPeriodoInteres, 2, ".", ",");
                             ?>
@@ -467,9 +475,10 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
                         </td>
                         <td style="text-align: right; padding: 0px;">
                             <?php 
-                            $saldoFinalInteres = $detalles['resumen_periodo']['interes']['saldo_anterior'] 
-                                + $detalles['resumen_periodo']['interes']['cargos'] 
-                                - $detalles['resumen_periodo']['interes']['abonos'];
+                            $saldoFinalInteres = $detalles['resumen_periodo']['interes']['saldo_anterior']
+                                + $detalles['resumen_periodo']['interes']['cargos']
+                                - $detalles['resumen_periodo']['interes']['abonos']
+                                - $detalles['resumen_periodo']['interes']['capitalizado'];
                             if($saldoFinalInteres <= 0) $saldoFinalInteres = 0;
                             echo number_format($saldoFinalInteres, 2, ".", ",");
                             ?>
