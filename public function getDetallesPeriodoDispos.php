@@ -478,6 +478,14 @@
         $resumenPeriodo['interes']['capitalizado'] = $periodoCapitalizado;
         $saldoLinea['interes_pagado'] = $periodoInteresPagado;
         $saldoLinea['interes_pagado_capitalizable'] = $periodoInteresPagadoCap;
+
+        // Actualizar saldos por la capitalización del periodo
+        $saldoLinea['capital']   += $periodoCapitalizado;
+        $saldoLinea['interes']   -= $periodoCapitalizado;
+        $saldoPagar['capital']   += $periodoCapitalizado;
+        $saldoPagar['interes']   -= $periodoCapitalizado;
+        $resumenPeriodo['capital']['cargos'] += $periodoCapitalizado;
+        $resumenPeriodo['interes']['abonos'] += $periodoCapitalizado;
         $comisionesPeriodo=array(
             //array(),
         );
