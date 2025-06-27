@@ -477,11 +477,10 @@
         $saldoLinea['interes_pagado'] = $periodoInteresPagado;
         $saldoLinea['interes_pagado_capitalizable'] = $periodoInteresPagadoCap;
 
-        // Ajustar saldos por interés capitalizado
-        $saldoLinea['capital']  += $periodoCapitalizado;
-        $saldoPagar['capital']  += $periodoCapitalizado;
-        $saldoLinea['interes']  -= $periodoCapitalizado;
-        $saldoPagar['interes']  -= $periodoCapitalizado;
+
+        $saldoLinea['interes_pagado_cap'] = $periodoCapitalizado;
+
+                                                                
         $comisionesPeriodo=array(
             //array(),
         );
