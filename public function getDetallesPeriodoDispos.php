@@ -540,9 +540,6 @@
                     if ((isset($fecha_pago) && $fecha_pago != 0 && strtotime($fecha_pago) < strtotime($fecha1)) && ($amortizacion->fecha_amortizacion<$fecha1)) {
                         //Si ya esta pagado se suma cero al saldo
                         $resumenPeriodo['capital']['saldo_anterior'] += 0;
-						if($solicitud->nombre_tipo_pago=="Interes Capitalizable"){
-							//$resumenPeriodo['interes']['saldo_anterior'] += $amortizacion->pago_interes - $amortizacion->iva_interes_generado;
-						}
                     } else {
                         //Si se vence o se paga despues de la fecha1 es parte del periodo ya que ya se sabe que es menor a la fecha2
                         //Se suma cero al cargo porque ya se agregi desde la disposicion
@@ -968,14 +965,6 @@
                             $fechaP0=$amortizaciones[$keyA-1]->fecha_amortizacion;
                             $saldoCapital0=$amortizaciones[$keyA-1]->saldo_final;
 
-							// Interes capitalizable
-							if (
-								strpos(Controller::normalizarTexto($model->id_tipo_amortizacion0->nombre), 'capitalizable') !== false
-								|| Controller::normalizarTexto($model->id_tipo_pago0->nombre) == "capitalizable"
-							) {
-								$amortizacionesCalculadas = Amortizaciones::model()->getAmortizaciones($this);
-								$saldoCapital0 = $amortizacionesCalculadas[$keyA]["saldo_inicial"];
-							}
 
                             $interes0=0;
                             $diasMaximo=round($diasAño/$veces_anual);
@@ -1309,7 +1298,6 @@
                 }
             }
         }
-		$_interes_cap = false;
         //PAGOS
         foreach ($amortizacionesAll as $keyP=>$amortizaciones) {
             if($keyP==0 || $solicitud->id_producto0->tabla_disposiciones!="unica"){
@@ -1383,13 +1371,6 @@
                                 {
                                     $iva_moratorio_nuevo+=$value;
                                 }
-								$verificar_cap= Operaciones::model()->find("referencia_operacion='".$parcialidad->referencia_operacion."'");
-								if($verificar_cap->id_instrumento_monetario0->descripcion=="CAPITALIZACION"){
-									$_interes_cap = true;									
-									$interesPagado_cap+= $interesPagado;
-									$interes_pagado_nuevo = 0;
-									$interesPagadoAnterior = 0;
-								}
                             }
 
 
@@ -1556,13 +1537,6 @@
                                     $detallesPeriodo[$keyDetallePeriodo]['iva']+=$ivaInteresPagado+$ivaMoraPagado+$ivaComisionesPagado;*/
                                     $detallesPeriodo[$keyDetallePeriodo]['abono']+=$parcialidad->pago_capital+$parcialidad->pago_interes+$parcialidad->pago_moratorios+$parcialidad->pago_comisiones;//$parcialidad->pago_otros_gastos
                                     $detallesPeriodo[$keyDetallePeriodo]['capital']+=$parcialidad->pago_capital;
-									if($_interes_cap){
-										$detallesPeriodo[$keyDetallePeriodo]['interes']+=0;
-										$detallesPeriodo[$keyDetallePeriodo]['interesCap']+=$parcialidad->pago_interes-$ivaInteresP;
-									}else{
-										$detallesPeriodo[$keyDetallePeriodo]['interes']+=$parcialidad->pago_interes-$ivaInteresP;
-										$detallesPeriodo[$keyDetallePeriodo]['interesCap']+=0;
-									}                                    
                                     $detallesPeriodo[$keyDetallePeriodo]['comision']+=$parcialidad->pago_comisiones-$ivaComisionesP;
                                     $detallesPeriodo[$keyDetallePeriodo]['mora']+=$parcialidad->pago_moratorios-$ivaMoraP;
                                     $detallesPeriodo[$keyDetallePeriodo]['iva']+=$ivaInteresP+$ivaComisionesP+$ivaMoraP+$parcialidad->iva_capital;
@@ -1584,22 +1558,6 @@
                             $saldoLinea['interes_pagado']+=$interesP;
 							$fecha_pago_cap = date('Y-m-d 00:00:00', strtotime($amortizacion->fecha_pago));//quitamos horas por cuestiones de el strtotime ya que aunque se pague
 							//el mismo dia si las horas son distintas arroja un adeudo
-                            if((strtotime($fecha_pago_cap)<=strtotime($amortizacion->fecha_amortizacion)) || $amortizacion->saldo_final=0){
-                                $saldoLinea['interes_pagado_capitalizable']+=$interesP+$ivaP;
-                            }
-                            $saldoLinea['iva_pagado']+=$ivaP;
-                        }
-                        else{
-							if($_interes_cap){
-								$saldoLinea['interes_pagado']+=0;
-								$saldoLinea['interes_pagado_cap']+=$interesPagado;
-							}else{
-								$saldoLinea['interes_pagado']+=$interesPagado;
-							}
-							$fecha_pago_cap = date('Y-m-d 00:00:00', strtotime($amortizacion->fecha_pago));
-                            if((strtotime($fecha_pago_cap)<=strtotime($amortizacion->fecha_amortizacion)) || $amortizacion->saldo_final=0){
-                                $saldoLinea['interes_pagado_capitalizable']+=$interesPagado;
-                            }
                         }
 
                         if( $pago_moratorio_nuevo!=0)
@@ -1689,12 +1647,6 @@
                             //Si se paga despues de la fecha1 y hasta la fecha2 el pago es parte del periodo
 							$resumenPeriodo['capital']['saldo_anterior']-=$capitalPagadoAnterior;
                             $resumenPeriodo['capital']['abonos']+=$capitalPagado;
-							if($_interes_cap){
-								$resumenPeriodo['interes']['abonos']+=0;
-								$resumenPeriodo['interes']['capitalizado']+=$interesPagado;
-							}else{
-								$resumenPeriodo['interes']['abonos']+=$interesPagado;
-								
 							}
                             $resumenPeriodo['mora']['abonos']+=$moraPagado;
                             $resumenPeriodo['iva_interes']['abonos']+=$ivaInteresPagado;
@@ -1713,13 +1665,6 @@
                         }else{
                             //Si no se ha pagado es parte del periodo
                             $resumenPeriodo['capital']['abonos']+=$capitalPagado;
-							if($_interes_cap){
-								$resumenPeriodo['interes']['abonos']+=0;
-								$resumenPeriodo['interes']['capitalizado']+=$interesPagado;
-							}else{
-								$resumenPeriodo['interes']['abonos']+=$interesPagado;
-								
-							}
                             $resumenPeriodo['mora']['abonos']+=$moraPagado;
                             $resumenPeriodo['iva_interes']['abonos']+=$ivaInteresPagado;
                             $resumenPeriodo['iva_mora']['abonos']+=$ivaMoraPagado;
@@ -1754,16 +1699,6 @@
 
                             //Lo pagado se agrega dentro de los pagados del saldo de linea
                             $saldoLinea['capital_pagado']+=$amortizacion->pago_capital;
-							if($_interes_cap){
-								$saldoLinea['interes_pagado']+=0;
-								$saldoLinea['interes_pagado_cap']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-							}else{
-								$saldoLinea['interes_pagado']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-							}
-							$fecha_pago_cap = date('Y-m-d 00:00:00', strtotime($amortizacion->fecha_pago));
-                            if((strtotime($fecha_pago_cap)<=strtotime($amortizacion->fecha_amortizacion)) || $amortizacion->saldo_final=0){
-                                $saldoLinea['interes_pagado_capitalizable']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-                            }
                             $saldoLinea['iva_interes_pagado']+=$amortizacion->iva_interes_generado;
                             $saldoLinea['comisiones_pagado']+=$amortizacion->pago_comisiones*(1-$amortizacion->factor_iva_comisiones);
                             $saldoLinea['iva_comisiones_pagado']+=$amortizacion->pago_comisiones*($amortizacion->factor_iva_comisiones);
@@ -1799,13 +1734,6 @@
 								|| ($amortizacion->fecha_amortizacion>=$fecha1 && $amortizacion->fecha_amortizacion<=$fecha2)
 							) {
                                 $resumenPeriodo['capital']['abonos']+=$amortizacion->pago_capital;
-								if($_interes_cap){
-									$resumenPeriodo['interes']['abonos']+=0;
-									$resumenPeriodo['interes']['capitalizado']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-								}else{
-									$resumenPeriodo['interes']['abonos']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-									
-								}
                                 if($solicitud->id_producto0->id_tipo_producto==8){
                                     $resumenPeriodo['interes']['abonos'] += $amortizacion->pago_capital;
                                     $resumenPeriodo['iva_interes']['abonos'] += $amortizacion->iva_capital;
@@ -1841,13 +1769,6 @@
                                 $detallesPeriodo[$keyDetallePeriodo]['cargo']+=0;
                                 $detallesPeriodo[$keyDetallePeriodo]['abono']+=$amortizacion->pago_capital+$amortizacion->iva_capital+$amortizacion->pago_interes+$amortizacion->pago_comisiones+$amortizacion->pago_moratorios+$amortizacion->pago_seguro+$amortizacion->pago_otros_gastos;
                                 $detallesPeriodo[$keyDetallePeriodo]['capital']+=$amortizacion->pago_capital;
-								if($_interes_cap){
-									$detallesPeriodo[$keyDetallePeriodo]['interes']+=0;
-									$detallesPeriodo[$keyDetallePeriodo]['interesCap']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-								}else{
-									$detallesPeriodo[$keyDetallePeriodo]['interes']+=$amortizacion->pago_interes-$amortizacion->iva_interes_generado;
-									$detallesPeriodo[$keyDetallePeriodo]['interesCap']+=0;
-								}
                                 
                                 $detallesPeriodo[$keyDetallePeriodo]['comision']+=$amortizacion->pago_comisiones-$importeComisionesIVA;
                                 $detallesPeriodo[$keyDetallePeriodo]['mora']+=$amortizacion->pago_moratorios-$amortizacion->iva_moratorios;
@@ -1868,7 +1789,6 @@
 					// ——— Condonaciones sobre cargos (unificado) ———
 
 					// 0) Reiniciar variables auxiliares por cada amortización:
-					$_interes_cap = false;
 					$capitalPagado = $ivaCapitalPagado = 0;
 					$interesPagado = $ivaInteresPagado = 0;
 					$moraPagado    = $ivaMoraPagado    = 0;
@@ -2021,7 +1941,6 @@
 													+ $parcialidad->pago_moratorios,
 								'capital'          => $parcialidad->pago_capital,
 								'interes'          => $interesTotal,
-								'interesCap'       => $_interes_cap ? $interesTotal : 0,
 								'comision'         => $parcialidad->pago_comisiones - $ivaComC,
 								'mora'             => $moraTotal - $ivaMoraC,
 								'iva'              => $ivaInteresC + $ivaMoraC + $ivaComC,
