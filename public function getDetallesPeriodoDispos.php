@@ -1,6 +1,125 @@
-	<?php
-     
-     public function getDetallesPeriodoDisposicion($idSolicitud,$fecha1,$fecha2,$cliente=null, $incluirDisposicionesPagadas = 0)
+<?php
+
+    /**
+     * Calcula las estructuras de capitalización a partir de los arreglos
+     * recibidos. Devuelve los saldos generados para el periodo actual y el
+     * periodo inmediato anterior.
+     */
+    private function calcularCapitalizacion(array $nuevoCalculoAnterior, array $nuevoCalculo)
+    {
+        $saldoLineaCalculo = array(
+            'saldoLineaCorte'    => 0,
+            'saldoInsoluto'      => 0,
+            'interesesDevengados'=> 0,
+            'iva'                => 0,
+            'interesOrdinario'   => 0,
+            'interesMoratorios'  => 0,
+            'ivaInteres'         => 0,
+            'ivaMoratorio'       => 0,
+        );
+
+        $saldoLineaCalculoAnterior = array(
+            'saldoLineaCorte'    => 0,
+            'saldoInsoluto'      => 0,
+            'interesesDevengados'=> 0,
+            'iva'                => 0,
+            'interesOrdinario'   => 0,
+            'interesMoratorios'  => 0,
+            'ivaInteres'         => 0,
+            'ivaMoratorio'       => 0,
+        );
+
+        foreach ($nuevoCalculoAnterior as $item) {
+            foreach ($item as $subItem) {
+                $pagoMoratorio  = 0;
+                $ivaMoratorio   = 0;
+                $interesGenerado= 0;
+                $ivaInteres     = 0;
+
+                foreach ($subItem as $key => $value) {
+                    if($key=="pago_total") {
+                        $saldoLineaCalculoAnterior['saldoLineaCorte'] += $value;
+                    }
+                    if($key=="saldo_capital") {
+                        $saldoLineaCalculoAnterior['saldoInsoluto'] += $value;
+                    }
+                    if($key=="pago_moratorios") {
+                        $pagoMoratorio = $value;
+                    }
+                    if($key=="iva_moratorios") {
+                        $ivaMoratorio = $value;
+                    }
+                    if($key=="interes_generado") {
+                        $interesGenerado = $value;
+                    }
+                    if($key=="iva_moratorios") {
+                        $saldoLineaCalculoAnterior['iva'] += $value;
+                    }
+                    if($key=="iva_interes_generado") {
+                        $saldoLineaCalculoAnterior['iva'] += $value;
+                        $ivaInteres = $value;
+                    }
+                }
+
+                $resta = $pagoMoratorio - $ivaMoratorio;
+
+                $saldoLineaCalculoAnterior['interesesDevengados'] += $resta + $interesGenerado;
+                $saldoLineaCalculoAnterior['interesOrdinario']    += $interesGenerado;
+                $saldoLineaCalculoAnterior['interesMoratorios']    += $resta;
+                $saldoLineaCalculoAnterior['ivaMoratorio']         += $ivaMoratorio;
+                $saldoLineaCalculoAnterior['ivaInteres']           += $ivaInteres;
+            }
+        }
+
+        foreach ($nuevoCalculo as $item) {
+            foreach ($item as $subItem) {
+                $pagoMoratorio  = 0;
+                $ivaMoratorio   = 0;
+                $interesGenerado= 0;
+                $ivaInteres     = 0;
+
+                foreach ($subItem as $key => $value) {
+                    if($key=="pago_total") {
+                        $saldoLineaCalculo['saldoLineaCorte'] += $value;
+                    }
+                    if($key=="saldo_capital") {
+                        $saldoLineaCalculo['saldoInsoluto'] += $value;
+                    }
+                    if($key=="pago_moratorios") {
+                        $pagoMoratorio = $value;
+                    }
+                    if($key=="iva_moratorios") {
+                        $ivaMoratorio = $value;
+                    }
+                    if($key=="interes_generado") {
+                        $interesGenerado = $value;
+                    }
+                    if($key=="iva_moratorios") {
+                        $saldoLineaCalculo['iva'] += $value;
+                    }
+                    if($key=="iva_interes_generado") {
+                        $saldoLineaCalculo['iva'] += $value;
+                        $ivaInteres = $value;
+                    }
+                }
+
+                $resta = $pagoMoratorio - $ivaMoratorio;
+
+                $saldoLineaCalculo['interesesDevengados'] += $resta + $interesGenerado;
+                $saldoLineaCalculo['interesOrdinario']    += $interesGenerado;
+                $saldoLineaCalculo['interesMoratorios']    += $resta;
+                $saldoLineaCalculo['ivaMoratorio']         += $ivaMoratorio;
+                $saldoLineaCalculo['ivaInteres']           += $ivaInteres;
+            }
+        }
+
+        return array(
+            'saldoLineaCalculo'         => $saldoLineaCalculo,
+            'saldoLineaCalculoAnterior' => $saldoLineaCalculoAnterior,
+        );
+    }
+
+    public function getDetallesPeriodoDisposicion($idSolicitud,$fecha1,$fecha2,$cliente=null, $incluirDisposicionesPagadas = 0)
 	 {
         $model=$this;
         $data=array();
