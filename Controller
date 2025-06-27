@@ -1,0 +1,272 @@
+	private function getPdf($id = null, $descarga = null)
+	{
+		set_time_limit(3600);
+
+		$model 		= $this->loadModel($id);
+		$solicitud	= Solicitudes::model()->findByPk($model->id_solicitud);
+		$cliente	= Solicitudes::model()->findByPk($model->id_cliente);
+		$producto	= Productos::model()->findByPk($solicitud->id_producto);
+		$empresa	= Empresa::model()->find();
+		$comisionesArray = self::consultarComisiones($solicitud);
+
+		if (isset($model->id_disposicion)) {
+			$disposicion = Disposiciones::model()->findByPk($model->id_disposicion);
+			$solicitud->fecha_disposicion 	= $model->id_disposicion0->fecha;
+			$solicitud->entregable 			= $model->id_disposicion0->importe;
+			$detalles 						= $solicitud->getDetallesPeriodo2($model->fecha_inicio_periodo, $model->fecha_fin_periodo);
+			$amortizaciones 				= Amortizaciones::model()->findAll("id_disposicion=:disposicion", array(':disposicion' => $model->id_disposicion));
+			$dispuesto 						= $model->id_disposicion0->importe;
+
+			$comisionesAmortizaciones = ComisionesAmortizaciones::model()->with("id_amortizacion0.id_disposicion0")->findAll("id_disposicion0.id=:disposicion", array(':disposicion' => $model->id_disposicion));
+			$comisiones = array();
+
+			foreach ($comisionesAmortizaciones as $comisionAmortizacion) {
+				$comisiones[$comisionAmortizacion->id_amortizacion0->id][] = $comisionAmortizacion;
+			}
+		} else {
+			if (isset($solicitud->id_grupo_cliente) && $solicitud->id_grupo_cliente != 0) {
+				$detalles = $solicitud->getDetallesPeriodo2(
+					$model->fecha_inicio_periodo,
+					$model->fecha_fin_periodo,
+					$cliente
+				);
+
+				$solidario 		= GruposSolidarios::model()->find("id_solicitud=:solicitud AND id_cliente=:cliente", array(':solicitud' => $model->id_solicitud, ':cliente' => $model->id_cliente));
+				$amortizaciones = Amortizaciones::model()->findAll("id_grupo_solidario=:solidario", array(':solidario' => $solidario->id));
+				$dispuesto 		= $solidario->monto;
+
+				$comisionesAmortizaciones = ComisionesAmortizaciones::model()->with("id_amortizacion0.id_grupo_solidario0")->findAll("id_grupo_solidario0.id_solicitud=:solicitud AND id_grupo_solidario0.id_cliente=:cliente", array(':solicitud' => $model->id_solicitud, ':cliente' => $model->id_cliente));
+				$comisiones = array();
+				foreach ($comisionesAmortizaciones as $comisionAmortizacion) {
+					$comisiones[$comisionAmortizacion->id_amortizacion0->id][] = $comisionAmortizacion;
+				}
+			} else {
+				$detalles = $solicitud->getDetallesPeriodoDisposicion(
+					$model->id_solicitud,
+					$model->fecha_inicio_periodo,
+					$model->fecha_fin_periodo,
+					null,
+					(int) $model->incluir_disposiciones_pagadas
+				);
+
+				// Intereses devengados
+				$reporteDevengados = new ReporteDevengados();
+
+				$reporteDevengados->fecha1 = $model->fecha_inicio_periodo;
+				$reporteDevengados->fecha2 = $model->fecha_fin_periodo;
+				$reporteDevengados->cliente = $model->id_cliente;
+				$reporteDevengados->solicitud = $model->id_solicitud;
+
+				$reporteDevengadosSql = $reporteDevengados->getData(true);
+				$reporteDevengadosData = Yii::app()->db->createCommand($reporteDevengadosSql)->queryAll();
+
+				// En las siguientes lineas de codigo se resetea el saldo de linea["mora"] para que concuerde con el listado de movimientos del estado de cuenta
+				$interesProvisionadoSuma = 0;
+				$nuevoCalculoSaldoLineaMora = 0;
+				$nuevoCalculoSaldoPorcentajeIva = (($detalles["saldo_linea"]["mora"] + $detalles["saldo_linea"]["iva_mora"]) / $detalles["saldo_linea"]["mora"]) - 1;
+
+				foreach ($detalles['detalles_periodo'] as $detalleKey => $detalle) {
+					if (!isset($detalle['operacion'])) { continue; }
+
+					switch (mb_strtolower($detalle['operacion'])) {
+						case 'disposicion':
+						case 'vencimiento':
+							$nuevoCalculoSaldoLineaMora += $detalle['mora'];
+
+							if (mb_strtolower($detalle['operacion']) == 'disposicion') {
+								$interes_provisionado = 0;
+
+								if ($solicitud->intereses_visibles == 1 && in_array($solicitud->id_tipo_amortizacion0->nombre, array(
+									"Pago Único (Bullet)",
+									"Pago Único (Bullet) en días"
+								))) {
+									try {
+										$reporteDevengadosDataFilter = array_filter($reporteDevengadosData, function($item) use ($detalle) {
+											return $item['id_disposicion'] == $detalle['disposicion'];
+										});
+
+										$interes_provisionado += array_sum(array_column($reporteDevengadosDataFilter, 'interes_devengado'));
+									} catch (Exception $e) {
+										$interes_provisionado = 0;
+									}
+								}
+
+								$interesProvisionadoSuma += $interes_provisionado;
+								$detalles['detalles_periodo'][$detalleKey]['interes'] += $interes_provisionado;
+							}
+
+							break;
+						case 'pago':
+						case 'condonacion':
+							$nuevoCalculoSaldoLineaMora -= $detalle['mora'];
+							break;
+
+						default:
+							# code...
+							break;
+					}
+				}
+
+				if ($interesProvisionadoSuma != 0) {
+					$detalles['resumen_periodo']['interes']['cargos'] = $interesProvisionadoSuma;
+				}
+
+				if ($nuevoCalculoSaldoLineaMora != 0) {
+					$detalles["saldo_linea"]["mora"] = $nuevoCalculoSaldoLineaMora;
+					$detalles["saldo_linea"]["iva_mora"] = $nuevoCalculoSaldoLineaMora * $nuevoCalculoSaldoPorcentajeIva;
+					$detalles["saldo_pagar"]["mora"] = $nuevoCalculoSaldoLineaMora;
+					$detalles["saldo_pagar"]["iva_mora"] = $nuevoCalculoSaldoLineaMora * $nuevoCalculoSaldoPorcentajeIva;
+				}
+
+				// Se agregan estas validaciones para incidencias con moratorios negativos los cuales no pueden existir
+				$detalles["saldo_linea"]["mora"] = max($detalles["saldo_linea"]["mora"], 0);
+				$detalles["saldo_linea"]["iva_mora"] = max($detalles["saldo_linea"]["iva_mora"], 0);
+				$detalles["saldo_pagar"]["mora"] = max($detalles["saldo_pagar"]["mora"], 0);
+				$detalles["saldo_pagar"]["iva_mora"] = max($detalles["saldo_pagar"]["iva_mora"], 0);
+
+				$total_pagar_c 	= 0;
+				$amortizaciones = Amortizaciones::model()->findAll("id_solicitud=:solicitud", array(':solicitud' => $model->id_solicitud));
+				foreach ($amortizaciones as $amortizacion) {
+					if ($amortizacion->fecha_amortizacion >= $model->fecha_inicio_periodo and $amortizacion->fecha_amortizacion <= $model->fecha_fin_periodo) {
+						$total_pagar_c += $amortizacion->pago_total;
+					}
+				}
+
+				$dispuesto 					= $solicitud->entregable;
+				$comisionesAmortizaciones 	= ComisionesAmortizaciones::model()->with("id_amortizacion0")->findAll("id_amortizacion0.id_solicitud=:solicitud", array(':solicitud' => $model->id_solicitud));
+				$comisiones 				= array();
+				foreach ($comisionesAmortizaciones as $comisionAmortizacion) {
+					$comisiones[$comisionAmortizacion->id_amortizacion0->id][] = $comisionAmortizacion;
+				}
+			}
+		}
+
+		if (isset($solicitud->cat) && $solicitud->cat > 0) {
+			$cat = $solicitud->cat / 100;
+            $tir = $solicitud->tir / 100;
+		} else {
+			$amoritzacionesCat = (new Amortizaciones())->getAmortizaciones($solicitud);
+			$data = (new Amortizaciones())->getCAT($amoritzacionesCat, $solicitud, $disposicion, $comisiones,true);
+            $cat = $data["cat"];
+            $tir = $data["tir"];
+		}
+		if ($solicitud->id_producto0->calculo_cat == 'diario') {
+			$tipocalculo = 'Cálculo Diario C/Iva';
+		} elseif ($solicitud->id_producto0->calculo_cat == 'diario2') {
+			$tipocalculo = 'Cálculo Diario S/Iva';
+		} elseif ($solicitud->id_producto0->calculo_cat == 'periodo') {
+			$tipocalculo = 'Cálculo por Periodo C/Iva';
+		} elseif ($solicitud->id_producto0->calculo_cat == 'periodo2') {
+			$tipocalculo = 'Cálculo por Periodo S/Iva';
+		}
+
+		$model->leyenda_cat = '';
+		if ((bool) $model->id_solicitud0->id_producto0->cat_visible) {
+			$model->leyenda_cat = "CAT para fines informativos es de " . number_format($cat * 100, 1, ".", ",") . "% . " . $tipocalculo;
+		}
+
+		$model->leyenda_tir = '';
+		if ((bool) $model->id_solicitud0->id_producto0->tir_visible) {
+			$model->leyenda_tir = "TIR para fines informativos es de " . number_format($tir * 100, 1, ".", ", ") . "%";
+		}
+
+		if (!is_null($empresa)) {
+			if (!is_null($empresa->texto_informacion_importante) && $empresa->texto_informacion_importante != "") {
+				//$model->leyenda_cat="";
+				$model->leyenda_variacion = $empresa->texto_informacion_importante;
+			}
+		}
+		Yii::app()->session['estadoCuenta'] = $model;
+		//Yii::app()->session['pagosEstadoCuenta'] = $pagosVencidos;
+
+		// monto a pagar
+		$total_pagar_c = $solicitud->getMontoPago($model->fecha_fin_periodo);
+
+		// Se agregan los quebrantos
+		$sqlQuebrantos =  " SELECT 'amortizacion' AS tipo_registro, a.numero_amortizacion, a.fecha_pago, a.pago_total, a.pago_capital, a.pago_interes, a.pago_comisiones, a.pago_moratorios";
+		$sqlQuebrantos .= " FROM amortizaciones a";
+		$sqlQuebrantos .= " LEFT JOIN parcialidades_amortizaciones pa ON a.id = pa.id_amortizacion";
+		$sqlQuebrantos .= " WHERE a.id_solicitud = {$model->id_solicitud0->id} AND a.`status` = 'Quebrantado' AND pa.id IS NULL";
+
+		$sqlQuebrantos .= " UNION ";
+
+		$sqlQuebrantos .= " SELECT 'parcialidad' AS tipo_registro, (SELECT numero_amortizacion FROM amortizaciones WHERE id = pa.id_amortizacion) AS numero_amortizacion, pa.fecha_pago, pa.pago_total, pa.pago_capital, pa.pago_interes, pa.pago_comisiones, pa.pago_moratorios";
+		$sqlQuebrantos .= " FROM parcialidades_amortizaciones pa";
+		$sqlQuebrantos .= " WHERE pa.`status` = 'Quebrantado' AND pa.id_amortizacion IN (SELECT id FROM amortizaciones WHERE id_solicitud = {$model->id_solicitud0->id})";
+
+		$quebrantos = Yii::app()->db->createCommand($sqlQuebrantos)->queryAll();
+
+		if ($empresa->userpt == 'FOR') {
+			$html = $this->renderPartial('pdfFortrade', array(
+				'model' 		=> $model,
+				'solicitud' 	=> $solicitud,
+				'cliente' 		=> $cliente,
+				'empresa' 		=> $empresa,
+				'producto' 		=> $producto,
+				'detalles' 		=> $detalles,
+				'comisiones'    => $comisionesArray,
+				'quebrantos'	=> $quebrantos
+			), true);
+		} else {
+			if($solicitud->id_tipo_amortizacion0->nombre=="Pago Único (Bullet) con Interes Capitalizable a Fin de Mes en días"){
+				$html = $this->renderPartial('pdf_cap', array(
+					'model' 		=> $model,
+					'solicitud' 	=> $solicitud,
+					'cliente' 		=> $cliente,
+					'empresa' 		=> $empresa,
+					'producto' 		=> $producto,
+					'detalles' 		=> $detalles,
+					'total_pagar_c' => $total_pagar_c,
+					'comisiones'    => $comisionesArray,
+					'quebrantos'	=> $quebrantos
+				), true);
+			}else{
+				$html = $this->renderPartial('pdf', array(
+					'model' 		=> $model,
+					'solicitud' 	=> $solicitud,
+					'cliente' 		=> $cliente,
+					'empresa' 		=> $empresa,
+					'producto' 		=> $producto,
+					'detalles' 		=> $detalles,
+					'total_pagar_c' => $total_pagar_c,
+					'comisiones'    => $comisionesArray,
+					'quebrantos'	=> $quebrantos
+				), true);
+			}
+		}
+
+
+		require_once('mpdf.php');
+		$pdf = new mPDF(
+			$mode = '',
+			$format = 'Letter',
+			$default_font_size = 0,
+			$default_font = '',
+			$mgl = 15,
+			$mgr = 15,
+			$mgt = 16,
+			$mgb = 16,
+			$mgh = 9,
+			$mgf = 9,
+			$orientation = 'L'
+		);
+
+		$stylesheet 	= file_get_contents(Yii::app()->basePath . '/../css/bootstrap.min.css');
+		$stylesheet2 	= file_get_contents(Yii::app()->basePath . '/../css/bootstrap-yii.css');
+		$stylesheet3 	= file_get_contents(Yii::app()->basePath . '/../css/bootstrap-box.css');
+		$stylesheet4 	= file_get_contents(Yii::app()->basePath . '/../css/styles.css');
+
+		$pdf->WriteHTML($stylesheet, 	1);
+		$pdf->WriteHTML($stylesheet2, 	1);
+		$pdf->WriteHTML($stylesheet3, 	1);
+		$pdf->WriteHTML($stylesheet4, 	1);
+		$pdf->WriteHTML($html);
+
+		if ($descarga == null) {
+			$contenido = $pdf->Output('', 'S');
+		} else {
+			$contenido = $pdf->Output($descarga, 'F');
+		}
+
+		return $contenido;
+	}
