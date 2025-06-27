@@ -1,5 +1,3 @@
-<?php
-
     /**
      * Calcula las estructuras de capitalización a partir de los arreglos
      * recibidos. Devuelve los saldos generados para el periodo actual y el
@@ -478,7 +476,11 @@
         $resumenPeriodo['interes']['capitalizado'] = $periodoCapitalizado;
         $saldoLinea['interes_pagado'] = $periodoInteresPagado;
         $saldoLinea['interes_pagado_capitalizable'] = $periodoInteresPagadoCap;
+
+
         $saldoLinea['interes_pagado_cap'] = $periodoCapitalizado;
+
+                                                                
         $comisionesPeriodo=array(
             //array(),
         );
