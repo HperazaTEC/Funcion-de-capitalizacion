@@ -478,6 +478,7 @@
         $resumenPeriodo['interes']['capitalizado'] = $periodoCapitalizado;
         $saldoLinea['interes_pagado'] = $periodoInteresPagado;
         $saldoLinea['interes_pagado_capitalizable'] = $periodoInteresPagadoCap;
+        $saldoLinea['interes_pagado_cap'] = $periodoCapitalizado;
         $comisionesPeriodo=array(
             //array(),
         );
@@ -1807,7 +1808,6 @@
                             //Si se paga despues de la fecha1 y hasta la fecha2 el pago es parte del periodo
 							$resumenPeriodo['capital']['saldo_anterior']-=$capitalPagadoAnterior;
                             $resumenPeriodo['capital']['abonos']+=$capitalPagado;
-							}
                             $resumenPeriodo['mora']['abonos']+=$moraPagado;
                             $resumenPeriodo['iva_interes']['abonos']+=$ivaInteresPagado;
                             $resumenPeriodo['iva_mora']['abonos']+=$ivaMoraPagado;
