@@ -1,0 +1,1110 @@
+<?php
+/**
+ * Reporte de Estado de Cuenta - Producto Pago Único (Bullet) con Interés Capitalizable a Fin de Mes en días
+ * (Código generado eliminando productos no relacionados)
+ * 
+ * @var EstadosCuentaController $this
+ * @var Solicitudes $solicitud
+ * @var array $detalles   // detalles del estado de cuenta (saldo_linea, resumen_periodo, detalles_periodo, etc.)
+ * @var array $comisiones // (posible arreglo con comisiones totales)
+ */
+
+$meses = array('diciembre','enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre');
+$fecha_actual_letras = date("d")." de ".$meses[date("n")]." de ".date("Y");
+$fecha_apertura = date("d/m/Y", strtotime($solicitud->fecha_disposicion));
+$fecha_apertura_letras = date("d", strtotime($fecha_apertura))." de ".$meses[date("n", strtotime($fecha_apertura))]." de ".date("Y", strtotime($fecha_apertura));
+
+// Aseguramos que ciertos valores numéricos estén inicializados
+if (!is_numeric($detalles['resumen_periodo']['capital']['saldo_anterior'])) $detalles['resumen_periodo']['capital']['saldo_anterior'] = 0;
+if (!is_numeric($detalles['resumen_periodo']['interes']['saldo_anterior'])) $detalles['resumen_periodo']['interes']['saldo_anterior'] = 0;
+if (!is_numeric($detalles['resumen_periodo']['mora']['saldo_anterior'])) $detalles['resumen_periodo']['mora']['saldo_anterior'] = 0;
+if (!is_numeric($detalles['resumen_periodo']['iva_interes']['saldo_anterior'])) $detalles['resumen_periodo']['iva_interes']['saldo_anterior'] = 0;
+if (!is_numeric($detalles['resumen_periodo']['iva_mora']['saldo_anterior'])) $detalles['resumen_periodo']['iva_mora']['saldo_anterior'] = 0;
+if (!is_numeric($detalles['saldo_linea']['capital'])) $detalles['saldo_linea']['capital'] = 0;
+if (!is_numeric($detalles['saldo_linea']['interes'])) $detalles['saldo_linea']['interes'] = 0;
+if (!is_numeric($detalles['saldo_linea']['mora'])) $detalles['saldo_linea']['mora'] = 0;
+if (!is_numeric($detalles['saldo_linea']['iva_interes'])) $detalles['saldo_linea']['iva_interes'] = 0;
+if (!is_numeric($detalles['saldo_linea']['iva_mora'])) $detalles['saldo_linea']['iva_mora'] = 0;
+if (!is_numeric($detalles['saldo_linea']['comisiones'])) $detalles['saldo_linea']['comisiones'] = 0;
+if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_linea']['iva_comisiones'] = 0;
+?>
+<style>
+    @page {
+        header: html_myHTMLHeader1;
+        footer: html_myFooter1;
+        margin-top: 100px;
+        margin-bottom: 60px;
+        margin-left: 0px;
+        margin-right: 0px;
+        margin-header: 0cm;
+        margin-footer: 0cm;
+        font-size: 8pt;
+    }
+</style>
+<htmlpageheader name="myHTMLHeader1">
+    <table width="100%" style="font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 20pt;">
+        <tr>
+            <td style="width: 20%; background-color: #29487f;"></td>
+            <td style="width: 60%; background-color: #29487f;"></td>
+            <td style="width: 20%; background-color: #29487f;"></td>
+        </tr>
+        <tr>
+            <td><?php echo CHtml::image(Yii::app()->baseUrl.'/images/main/'.Empresa::model()->find()->logo, '', array('style'=>'height:60px;')); ?></td>
+            <td style="text-align: center;">Estado de Cuenta</td>
+            <td style="text-align: right; font-size: 10pt;"><span><?php echo $fecha_actual_letras; ?></span></td>
+        </tr>
+    </table>
+</htmlpageheader>
+<htmlpagefooter name="myFooter1">
+    <table width="100%" style="font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 20pt;">
+        <tr>
+            <td style="width: 33%;"></td>
+            <td style="width: 34%;"></td>
+            <td style="width: 33%; text-align: right;">{PAGENO}/{nbpg}</td>
+        </tr>
+        <tr>
+            <td style="background-color: #29487f;"></td>
+            <td style="background-color: #29487f;"></td>
+            <td style="background-color: #29487f;"></td>
+        </tr>
+    </table>
+</htmlpagefooter>
+
+<div class="container-fluid">
+    <div class="row-fluid">
+        <div class="span12" style="height: 25px;"></div>
+    </div>
+    <div class="row-fluid">
+        <div class="span12">
+            <table style="font-family: Calibri, sans-serif; color: #7f7f7f; width: 100%;">
+                <tbody>
+                    <tr>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="6" style="border: 1px solid #ededed; border-radius: 5px; padding: 10px;">
+                            <?php 
+                            // Datos de la empresa emisora
+                            echo "<b>".$empresa->denominacion."</b><br/>";
+                            echo $empresa->direccionCorta."<br/>";
+                            echo "{$empresa->id_municipio0->municipio}, {$empresa->id_estado0->estado}<br/>";
+                            echo "Correo: {$empresa->email}<br/>";
+                            echo "Teléfono: {$empresa->telefono}<br/>";
+                            echo "RFC: {$empresa->rfc}";
+                            ?>
+                        </td>
+                        <td></td>
+                        <td colspan="3" rowspan="2">
+                            <table style="text-align: center; font-size: 8pt; width: 100%;">
+                                <tbody>
+                                    <tr style="height: 10px;">
+                                        <td style="font-weight: bold; padding: 2px; margin: 0px;">Saldo de Línea al Corte c/IVA:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: right;">
+                                            <?php 
+                                            $saldoLineaCorte = $detalles['saldo_linea']['capital'] 
+                                                + $detalles['saldo_linea']['interes'] 
+                                                + $detalles['saldo_linea']['mora'] 
+                                                + $detalles['saldo_linea']['iva_interes'] 
+                                                + $detalles['saldo_linea']['iva_mora'] 
+                                                + $detalles['saldo_linea']['comisiones'] 
+                                                + ($detalles['saldo_linea']['interes_pagado'] - $detalles['saldo_linea']['interes_pagado_capitalizable']) 
+                                                + $detalles['saldo_linea']['iva_comisiones'];
+                                            echo number_format($saldoLineaCorte, 2, ".", ",");
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr style="height: 10px;">
+                                        <td style="padding: 2px; margin: 0px;">Saldo Insoluto:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: right;">
+                                            <?php 
+                                            $saldoInsoluto = $detalles['saldo_linea']['capital'] 
+                                                + ($detalles['saldo_linea']['interes_pagado'] - $detalles['saldo_linea']['interes_pagado_capitalizable']);
+                                            echo number_format($saldoInsoluto, 2, ".", ",");
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr style="height: 10px;">
+                                        <td style="padding: 2px; margin: 0px;">Saldo de Intereses:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: right;">
+                                            <?php 
+                                            $saldoFinMora = $detalles['resumen_periodo']['mora']['saldo_anterior'] 
+                                                + $detalles['resumen_periodo']['mora']['cargos'] 
+                                                - $detalles['resumen_periodo']['mora']['abonos'];
+                                            $saldoFinInteres = $detalles['resumen_periodo']['interes']['saldo_anterior'] 
+                                                + $detalles['resumen_periodo']['interes']['cargos'] 
+                                                - $detalles['resumen_periodo']['interes']['abonos'];
+                                            $sumaIntereses = $saldoFinInteres + $saldoFinMora;
+                                            echo number_format($sumaIntereses, 2, ".", ",");
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr style="height: 10px;">
+                                        <td style="padding: 2px; margin: 0px;">IVA:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: right;">
+                                            <?php 
+                                            $saldoFinInteresIva = $detalles['resumen_periodo']['iva_interes']['saldo_anterior'] 
+                                                + $detalles['resumen_periodo']['iva_interes']['cargos'] 
+                                                - $detalles['resumen_periodo']['iva_interes']['abonos'];
+                                            $saldoFinMoraIva = $detalles['resumen_periodo']['iva_mora']['saldo_anterior'] 
+                                                + $detalles['resumen_periodo']['iva_mora']['cargos'] 
+                                                - $detalles['resumen_periodo']['iva_mora']['abonos'];
+                                            $sumaIVA = $saldoFinInteresIva + $saldoFinMoraIva;
+                                            echo number_format($sumaIVA, 2, ".", ",");
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr style="height: 10px;">
+                                        <td style="padding: 2px; margin: 0px;">Comisiones Pendientes:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: right;">
+                                            <?php echo number_format($detalles['saldo_linea']['comisiones'], 2, ".", ","); ?>
+                                        </td>
+                                    </tr>
+                                    <tr style="height: 10px;">
+                                        <td style="padding: 2px; margin: 0px;">IVA:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: right;">
+                                            <?php echo number_format($detalles['saldo_linea']['iva_comisiones'], 2, ".", ","); ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; padding: 2px; margin: 0px;">Producto:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: left;"><?php echo $solicitud->id_producto0->nombre; ?></td>
+                                    </tr>
+                                    <?php if($solicitud->id_producto0->ocultar_tasas == "0"): ?>
+                                    <tr>
+                                        <td style="font-weight: bold; padding: 2px; margin: 0px;">Tasa Ordinaria:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: center;">
+                                            <?php 
+                                            if($solicitud->id_producto0->tasacomercial > 0) {
+                                                echo round($solicitud->id_producto0->tasacomercial);
+                                            } else {
+                                                if($solicitud->id_producto0->calculo_tasa_variable == "Inicio del periodo" || $solicitud->id_producto0->calculo_tasa_variable == "Último Publicado") {
+                                                    $tasa_interes = $solicitud->sobretasa;
+                                                    echo round($tasa_interes * 100, 2) . " + " . $solicitud->nombre_tasa_referencia;
+                                                } else {
+                                                    echo round($solicitud->sobretasa * 100, 2) . "%";
+                                                }
+                                            }
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; padding: 2px; margin: 0px;">Tasa Moratoria:</td>
+                                        <td style="padding: 2px; margin: 0px; text-align: center;">
+                                            <?php 
+                                            if(substr($solicitud->id_producto0->tipo_moratorios, 0, 8) == "Multiplo") {
+                                                echo "Múltiplo " . round($solicitud->tasa_moratoria * 100, 2) . " veces la tasa ordinaria";
+                                            } else {
+                                                echo round($solicitud->tasa_moratoria * 100, 2) . " %";
+                                            }
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <?php endif; ?>
+                                    <?php if($solicitud->id_producto0->id_tipo_producto != 8): // (siempre verdadero para este producto) ?>
+                                    <tr>
+                                        <td style="padding: 2px; margin: 0px;">Intereses Devengados:</td>
+                                        <td style="height: 10px; padding: 2px; margin: 0px; text-align: right;">
+                                            <?php 
+                                            if($solicitud->intereses_visibles == "1") {
+                                                echo number_format($detalles['resumen_periodo']['interes']['cargos'], 2, ".", ",");
+                                            } else {
+                                                $sumaOperacionesInteres = $detalles['saldo_linea']['interes'] + $detalles['saldo_linea']['mora'];
+                                                echo number_format($sumaOperacionesInteres >= 0 ? $sumaOperacionesInteres : 0, 2, ".", ",");
+                                            }
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 2px; margin: 0px;">IVA</td>
+                                        <td style="height: 10px; padding: 2px; margin: 0px; text-align: right;">
+                                            <?php 
+                                            $sumaOperacionesIVA = $detalles['saldo_linea']['iva_interes'] + $detalles['saldo_linea']['iva_mora'];
+                                            echo number_format($sumaOperacionesIVA >= 0 ? $sumaOperacionesIVA : 0, 2, ".", ",");
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="3">
+                            <table style="text-align: center; font-size: 8pt; color: #333; width: 100%;">
+                                <tbody>
+                                    <tr>
+                                        <td style="font-weight: bold;"><!-- Monto a pagar en el Periodo --></td>
+                                    </tr>
+                                    <tr>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="row-fluid">
+        <div class="span12">
+            <table style="font-family: Calibri, sans-serif; color: #7f7f7f; width: 100%;">
+                <tbody>
+                    <tr>
+                        <td colspan="4" style="border-radius: 5px; padding: 10px;">
+                            <table border="0" style="width: 100%; background-color: #ededed; font-size: 9pt;">
+                                <tbody>
+                                    <tr>
+                                        <td colspan="2" style="text-align: center; font-weight: bold; background-color: #9C9C9D; color: white; border: 1px solid #fff;">CLIENTE</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; background-color: #9C9C9D; color: white; border: 1px solid #fff;">Nombre</td>
+                                        <td style="border: 1px solid #fff;">
+                                            <?php 
+                                            if(isset($solicitud->id_cliente0->id_pld_cliente0->razon_social) && !empty($solicitud->id_cliente0->id_pld_cliente0->razon_social)) {
+                                                echo $solicitud->id_cliente0->id_pld_cliente0->razon_social . " " . $solicitud->id_cliente0->id_pld_cliente0->tipo_sociedad;
+                                            } else {
+                                                echo $solicitud->id_cliente0->fullName;
+                                            }
+                                            ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; background-color: #9C9C9D; color: white; border: 1px solid #fff;">Dirección</td>
+                                        <td style="border: 1px solid #fff;"><?php echo $solicitud->id_cliente0->direccion; ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; background-color: #9C9C9D; color: white; border: 1px solid #fff;">Alcaldía/Municipio</td>
+                                        <td style="border: 1px solid #fff;"><?php echo $solicitud->id_cliente0->municipio; ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; background-color: #9C9C9D; color: white; border: 1px solid #fff;">Email</td>
+                                        <td style="border: 1px solid #fff;"><?php echo $solicitud->id_cliente0->email; ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: bold; background-color: #9C9C9D; color: white; border: 1px solid #fff;">R.F.C.</td>
+                                        <td style="border: 1px solid #fff;"><?php echo $solicitud->id_cliente0->rfc; ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                        <td colspan="6">
+                            <table style="width: 100%; text-align: center; font-size: 11pt;">
+                                <tbody>
+                                    <tr style="background-color: #9C9C9D;">
+                                        <td colspan="2" style="font-weight: bold; color: white;">Fecha de Corte</td>
+                                        <td colspan="2" style="font-weight: bold; color: white;">Periodo</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" style="font-size: 8pt;"><?php echo date("d/m/Y", strtotime($model->fecha_fin_periodo)); ?></td>
+                                        <td style="font-size: 8pt;"><?php echo date("d/m/Y", strtotime($model->fecha_inicio_periodo)); ?></td>
+                                        <td style="font-size: 8pt;"><?php echo date("d/m/Y", strtotime($model->fecha_fin_periodo)); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="4" style="font-size: 11pt; font-weight: bold; text-align: center; background-color: #9C9C9D; color: white;">Datos de la línea</td>
+                                    </tr>
+                                    <tr style="background-color: #ededed;">
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Solicitud</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Contrato</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Moneda</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Límite del crédito</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo $solicitud->clave; ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo $solicitud->contrato; ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo $solicitud->id_moneda0->nombre; ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($solicitud->monto_autorizado, 2, ".", ",") . " " . $solicitud->id_moneda0->clave; ?></td>
+                                    </tr>
+                                    <tr style="background-color: #ededed;">
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Apertura</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Vencimiento</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Plazo</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Periodicidad</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo $fecha_apertura; ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;">
+                                            <?php 
+                                            $amortizacion_fecha = Amortizaciones::model()->find(array(
+                                                'condition' => 'id_solicitud=:id_solicitud',
+                                                'order' => 'numero_amortizacion DESC',
+                                                'params' => array(':id_solicitud' => $solicitud->id)
+                                            ));
+                                            echo date("d/m/Y", strtotime($amortizacion_fecha->fecha_amortizacion));
+                                            ?>
+                                        </td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;">
+                                            <?php 
+                                            if($solicitud->id_tipo_amortizacion0->plazo == "Único") {
+                                                if($solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) en días") {
+                                                    echo "Al vencimiento";
+                                                } else {
+                                                    echo $solicitud->plazo_autorizado . " Meses";
+                                                }
+                                            } else {
+                                                echo $solicitud->plazo_autorizado . " " . $solicitud->id_tipo_amortizacion0->plazo;
+                                            }
+                                            ?>
+                                        </td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo $solicitud->id_tipo_amortizacion0->pago; ?></td>
+                                    </tr>
+                                    <tr style="background-color: #ededed;">
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Capital pagado</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Interés pagado</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Moratorios pagado</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">IVA de interés pagado</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($detalles['saldo_linea']['capital_pagado'], 2, ".", ","); ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($detalles['saldo_linea']['interes_pagado'], 2, ".", ","); ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($detalles['saldo_linea']['mora_pagado'], 2, ".", ","); ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($detalles['saldo_linea']['iva_pagado'], 2, ".", ","); ?></td>
+                                    </tr>
+                                    <tr style="background-color: #ededed;">
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Monto a pagar</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Base cálculo ordinarios</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Base cálculo moratorios</td>
+                                        <td style="font-weight: bold; text-align: center; padding: 0px; font-size: 8pt;">Interés Capitalizado</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($total_pagar_c, 2, ".", ","); ?></td>
+                                        <?php $bases = EstadosCuenta::model()->calcularBases($solicitud->id, $model->fecha_inicio_periodo, $model->fecha_fin_periodo); ?>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($bases["base_total"], 2, ".", ","); ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($bases["base_mora"], 2, ".", ","); ?></td>
+                                        <td style="text-align: center; padding: 0px; font-size: 8pt;"><?php echo number_format($detalles['saldo_linea']['interes_pagado_cap'], 2, ".", ","); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row-fluid">
+        <div class="span12">
+            <table style="width: 100%; font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 9pt;">
+                <tbody>
+                    <tr>
+                        <td colspan="7" style="text-align: center; font-size: 11pt; background-color: #9C9C9D; color: white;">Resumen del Periodo</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: left; padding: 0px;">Concepto</td>
+                        <td style="font-weight: bold; text-align: right; padding: 0px;">Cargos</td>
+                        <td style="font-weight: bold; text-align: right; padding: 0px;">Abonos</td>
+                        <td style="font-weight: bold; text-align: right; padding: 0px;">Capitalización</td>
+                        <td style="font-weight: bold; text-align: right; padding: 0px;">Saldo</td>
+                        <td style="font-weight: bold; text-align: right; padding: 0px;">Saldo Anterior</td>
+                        <td style="font-weight: bold; text-align: right; padding: 0px;">Saldo Final</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0px;">Capital</td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['capital']['cargos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['capital']['abonos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format(0, 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoPeriodoCapital = $detalles['resumen_periodo']['capital']['cargos'] - $detalles['resumen_periodo']['capital']['abonos'];
+                            if($saldoPeriodoCapital < 0) $saldoPeriodoCapital = 0;
+                            echo number_format($saldoPeriodoCapital, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoAnteriorCapital = $detalles['resumen_periodo']['capital']['saldo_anterior'];
+                            if($solicitud->nombre_tipo_pago == "Interes Capitalizable" || $solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) con Interes Capitalizable a Fin de Mes en días") {
+                                $saldoAnteriorCapital += $detalles['resumen_periodo']['interes']['saldo_anterior'];
+                            }
+                            if($saldoAnteriorCapital <= 0) $saldoAnteriorCapital = 0;
+                            echo number_format($saldoAnteriorCapital, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            if($solicitud->nombre_tipo_pago == "Interes Capitalizable" || $solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) con Interes Capitalizable a Fin de Mes en días") {
+                                $saldoFinalCapital = $detalles['resumen_periodo']['capital']['saldo_anterior'] 
+                                    + ($detalles['saldo_linea']['interes_pagado'] - $detalles['saldo_linea']['interes_pagado_capitalizable']) 
+                                    + $detalles['resumen_periodo']['capital']['cargos'] 
+                                    - $detalles['resumen_periodo']['capital']['abonos'];
+                            } else {
+                                $saldoFinalCapital = $detalles['resumen_periodo']['capital']['saldo_anterior'] 
+                                    + $detalles['resumen_periodo']['capital']['cargos'] 
+                                    - $detalles['resumen_periodo']['capital']['abonos'];
+                            }
+                            if($saldoFinalCapital <= 0) $saldoFinalCapital = 0;
+                            echo number_format($saldoFinalCapital, 2, ".", ",");
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0px;">Interés Ordinario</td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['interes']['cargos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['interes']['abonos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['interes']['capitalizado'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoPeriodoInteres = $detalles['resumen_periodo']['interes']['cargos'] - $detalles['resumen_periodo']['interes']['abonos'];
+                            if($saldoPeriodoInteres < 0) $saldoPeriodoInteres = 0;
+                            echo number_format($saldoPeriodoInteres, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoAnteriorInteres = $detalles['resumen_periodo']['interes']['saldo_anterior'];
+                            if($saldoAnteriorInteres <= 0) $saldoAnteriorInteres = 0;
+                            echo number_format($saldoAnteriorInteres, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoFinalInteres = $detalles['resumen_periodo']['interes']['saldo_anterior'] 
+                                + $detalles['resumen_periodo']['interes']['cargos'] 
+                                - $detalles['resumen_periodo']['interes']['abonos'];
+                            if($saldoFinalInteres <= 0) $saldoFinalInteres = 0;
+                            echo number_format($saldoFinalInteres, 2, ".", ",");
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0px;">Interés Moratorio</td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['mora']['cargos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['mora']['abonos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format(0, 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoPeriodoMora = $detalles['resumen_periodo']['mora']['cargos'] - $detalles['resumen_periodo']['mora']['abonos'];
+                            if($saldoPeriodoMora < 0) $saldoPeriodoMora = 0;
+                            echo number_format($saldoPeriodoMora, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoAnteriorMora = $detalles['resumen_periodo']['mora']['saldo_anterior'];
+                            if($saldoAnteriorMora <= 0) $saldoAnteriorMora = 0;
+                            echo number_format($saldoAnteriorMora, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoFinalMora = $detalles['resumen_periodo']['mora']['saldo_anterior'] 
+                                + $detalles['resumen_periodo']['mora']['cargos'] 
+                                - $detalles['resumen_periodo']['mora']['abonos'];
+                            if($saldoFinalMora < 0) $saldoFinalMora = 0;
+                            echo number_format($saldoFinalMora, 2, ".", ",");
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0px;">IVA Interés</td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['iva_interes']['cargos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['iva_interes']['abonos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format(0, 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoPeriodoIVAInt = $detalles['resumen_periodo']['iva_interes']['cargos'] - $detalles['resumen_periodo']['iva_interes']['abonos'];
+                            if($saldoPeriodoIVAInt < 0) $saldoPeriodoIVAInt = 0;
+                            echo number_format($saldoPeriodoIVAInt, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoAnteriorIVAInt = $detalles['resumen_periodo']['iva_interes']['saldo_anterior'];
+                            if($saldoAnteriorIVAInt <= 0) $saldoAnteriorIVAInt = 0;
+                            echo number_format($saldoAnteriorIVAInt, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoFinalIVAInt = $detalles['resumen_periodo']['iva_interes']['saldo_anterior'] 
+                                + $detalles['resumen_periodo']['iva_interes']['cargos'] 
+                                - $detalles['resumen_periodo']['iva_interes']['abonos'];
+                            if($saldoFinalIVAInt < 0) $saldoFinalIVAInt = 0;
+                            echo number_format($saldoFinalIVAInt, 2, ".", ",");
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0px;">IVA Mora</td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['iva_mora']['cargos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format($detalles['resumen_periodo']['iva_mora']['abonos'], 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;"><?php echo number_format(0, 2, ".", ","); ?></td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoPeriodoIVAMora = $detalles['resumen_periodo']['iva_mora']['cargos'] - $detalles['resumen_periodo']['iva_mora']['abonos'];
+                            if($saldoPeriodoIVAMora < 0) $saldoPeriodoIVAMora = 0;
+                            echo number_format($saldoPeriodoIVAMora, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoAnteriorIVAMora = $detalles['resumen_periodo']['iva_mora']['saldo_anterior'];
+                            if($saldoAnteriorIVAMora <= 0) $saldoAnteriorIVAMora = 0;
+                            echo number_format($saldoAnteriorIVAMora, 2, ".", ",");
+                            ?>
+                        </td>
+                        <td style="text-align: right; padding: 0px;">
+                            <?php 
+                            $saldoFinalIVAMora = $detalles['resumen_periodo']['iva_mora']['saldo_anterior'] 
+                                + $detalles['resumen_periodo']['iva_mora']['cargos'] 
+                                - $detalles['resumen_periodo']['iva_mora']['abonos'];
+                            if($saldoFinalIVAMora < 0) $saldoFinalIVAMora = 0;
+                            echo number_format($saldoFinalIVAMora, 2, ".", ",");
+                            ?>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <br/>
+    <div class="row-fluid" style="width: 800px;">
+        <div class="span9" style="width: 68%; float: left;">
+            <table style="width: 100%; font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 9pt;">
+                <tbody>
+                    <tr>
+                        <td colspan="5" style="text-align: center; font-size: 11pt; background-color: #9C9C9D; color: white;">Comisiones Cobradas</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: left;">Fecha</td>
+                        <td style="font-weight: bold; text-align: left;">Concepto</td>
+                        <td style="font-weight: bold; text-align: center;">Monto</td>
+                        <td style="font-weight: bold; text-align: center;">IVA</td>
+                    </tr>
+                    <?php 
+                    $totalComisionesCobradas = 0;
+                    foreach($detalles['comisiones_periodo'] as $comision): 
+                        $totalComisionesCobradas += $comision['monto'] + $comision['iva'];
+                    ?>
+                    <tr>
+                        <td><?php echo date("d/m/Y", strtotime($comision['fecha'])); ?></td>
+                        <td><?php echo $comision['concepto']; ?></td>
+                        <td style="text-align: center;"><?php echo number_format($comision['monto'], 2, ".", ","); ?></td>
+                        <td style="text-align: center;"><?php echo number_format($comision['iva'], 2, ".", ","); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <tr>
+                        <td colspan="5" style="text-align: left; font-size: 11pt;">
+                            Monto total de las comisiones cobradas: <?php echo number_format($totalComisionesCobradas, 2, ".", ","); ?>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="span3" style="width: 30%; float: left;">
+            <h6 class="text-center">
+                ( Crédito de <?php echo number_format($solicitud->monto_autorizado, 2, ".", ","); ?> )
+            </h6>
+            <div class="span10 offset1" style="text-align: center;">
+                <?php 
+                $gCreditoDisponible = $solicitud->monto_autorizado - $detalles['saldo_linea']['capital'];
+                $gSaldoAnterior = $detalles['resumen_periodo']['capital']['saldo_anterior'] 
+                    + $detalles['resumen_periodo']['interes']['saldo_anterior'] 
+                    + $detalles['resumen_periodo']['mora']['saldo_anterior'] 
+                    + $detalles['resumen_periodo']['iva_interes']['saldo_anterior'] 
+                    + $detalles['resumen_periodo']['iva_mora']['saldo_anterior'];
+                $gCargos = $detalles['resumen_periodo']['capital']['cargos'];
+                $gIntereses = $detalles['resumen_periodo']['interes']['cargos'] + $detalles['resumen_periodo']['mora']['cargos'];
+                $gComisiones = $totalComisionesCobradas;
+                $gIVA = $detalles['resumen_periodo']['iva_interes']['cargos'] + $detalles['resumen_periodo']['iva_mora']['cargos'];
+                $h = 150;
+                $h1 = 40;
+                $h2 = 60;
+                $h3 = 20;
+                $h4 = 20;
+                $h5 = 20;
+                $h6 = 20;
+                if($h1 <= 20) $h1 = 20;
+                if($h2 <= 20) $h2 = 20;
+                if($h3 <= 20) $h3 = 20;
+                if($h4 <= 20) $h4 = 20;
+                if($h5 <= 20) $h5 = 20;
+                if($h6 <= 20) $h6 = 20;
+                ?>
+                <div style="background-color: #ddd; padding: <?php echo (($h1 - 20)/2); ?>px 0px;">
+                    <span>Crédito disponible <?php echo number_format($gCreditoDisponible, 2, ".", ","); ?></span>
+                </div>
+                <div style="background-color: #ccc; padding: <?php echo (($h2 - 20)/2); ?>px 0px;">
+                    <span>Saldo anterior <?php echo number_format($gSaldoAnterior, 2, ".", ","); ?></span>
+                </div>
+                <div style="background-color: #bbb; padding: <?php echo (($h3 - 20)/2); ?>px 0px;">
+                    <span>Cargos <?php echo number_format($gCargos, 2, ".", ","); ?></span>
+                </div>
+                <div style="background-color: #aaa; padding: <?php echo (($h4 - 20)/2); ?>px 0px;">
+                    <span>Intereses <?php echo number_format($gIntereses, 2, ".", ","); ?></span>
+                </div>
+                <div style="background-color: #aaa; padding: <?php echo (($h5 - 20)/2); ?>px 0px;">
+                    <span>IVA <?php echo number_format($gIVA, 2, ".", ","); ?></span>
+                </div>
+                <div style="background-color: #999; padding: <?php echo (($h6 - 20)/2); ?>px 0px;">
+                    <span>Comisiones <?php echo number_format($gComisiones, 2, ".", ","); ?></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row-fluid">
+        <div class="span12">
+            <table style="width: 100%; font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 9pt;">
+                <thead>
+                    <tr>
+                        <td colspan="9" style="text-align: center; font-size: 11pt; background-color: #9C9C9D; color: white;">Detalles del periodo</td>
+                    </tr>
+                    <tr style="visibility: hidden;">
+                        <td style="width: 10%;"></td>
+                        <td style="width: 18%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 12%;"></td>
+                        <td style="width: 12%;"></td>
+                        <td style="width: 8%;"></td>
+                        <td style="width: 10%;"></td>
+                        <td style="width: 10%;"></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">Fecha</td>
+                        <td style="font-weight: bold;">Concepto</td>
+                        <td style="font-weight: bold; text-align: right;">Cargo</td>
+                        <td style="font-weight: bold; text-align: right;">Abono</td>
+                        <td style="font-weight: bold; text-align: right;">Capital</td>
+                        <td style="font-weight: bold; text-align: right;">Interés Ordinario</td>
+                        <td style="font-weight: bold; text-align: right;">Comisiones</td>
+                        <td style="font-weight: bold; text-align: right;">Interés Moratorio</td>
+                        <td style="font-weight: bold; text-align: right;">IVA</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php 
+                    $totales = array();
+                    $totalesD = array();
+                    $disposicionKey = "Inicial";
+                    $operacion = "Inicial";
+                    $plurales = array('vencimiento' => 'Vencimientos', 'pago' => 'Pagos', 'disposicion' => 'Disposiciones', 'condonacion' => 'Condonaciones');
+
+                    // Sección Disposiciones
+                    foreach($detalles['detalles_periodo'] as $detalle):
+                        if($detalle['operacion'] != 'disposicion') continue;
+                        // Acumulación de totales para disposiciones
+                        $totales['abono'] = (isset($totales['abono']) ? $totales['abono'] : 0) + $detalle['abono'];
+                        if(in_array($detalle['operacion'], array('vencimiento', 'disposicion'))) {
+                            if($solicitud->intereses_visibles == "1") {
+                                if($detalle['operacion'] == 'disposicion') {
+                                    $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                    // (Omitimos comprobación de fecha_ultima_amortizacion)
+                                    $totalesD['cargo'] = (isset($totalesD['cargo']) ? $totalesD['cargo'] : 0) + $detalle['capital'];
+                                    $totalesD['capital'] = (isset($totalesD['capital']) ? $totalesD['capital'] : 0) + $detalle['capital'];
+                                    $totalesD['interes'] = (isset($totalesD['interes']) ? $totalesD['interes'] : 0) + $detalle['interes'];
+                                    $totalesD['iva'] = (isset($totalesD['iva']) ? $totalesD['iva'] : 0) + $detalle['iva'];
+                                } else {
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                }
+                            } else {
+                                $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                            }
+                        } elseif($detalle['operacion'] == 'pago') {
+                            $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) - $detalle['capital'];
+                            $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) - $detalle['interes'];
+                            $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) - $detalle['comision'];
+                            $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) - $detalle['mora'];
+                            $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) - $detalle['iva'];
+                        }
+                        // Encabezado de sección Disposiciones
+                        if($detalle['operacion'] != $operacion) {
+                            $operacion = $detalle['operacion'];
+                            echo '<tr><td colspan="9" style="padding: 1px; font-size: 8pt; text-align: center; font-weight: bold;">' . strtoupper($plurales[$detalle['operacion']]) . '</td></tr>';
+                        }
+                        // Sub-encabezado por cada Disposición
+                        if($detalle['disposicion'] != $disposicionKey && !isset($detalle['grupo'])) {
+                            $disposicionKey = $detalle['disposicion'];
+                            echo '<tr style="background-color: #eee;"><td colspan="9" style="padding: 1px; font-size: 8pt;">';
+                            if($solicitud->id_tipo_amortizacion0->plazo == "Único") {
+                                if($solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) en días") {
+                                    if($detalle['plazo'] == 1) {
+                                        echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: Al vencimiento";
+                                    }
+                                } else {
+                                    echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " Meses";
+                                }
+                            } else {
+                                echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " " . $solicitud->id_tipo_amortizacion0->plazo;
+                            }
+                            echo "</td></tr>";
+                        }
+                        // Registro de la disposición
+                        if(!isset($detalle['grupo'])) {
+                            echo "<tr>";
+                            echo "<td style='padding: 1px; font-size: 8pt;'>" . date("d/m/Y", strtotime($detalle['fecha'])) . "</td>";
+                            echo "<td style='padding: 1px; font-size: 8pt;'>" . $detalle['concepto'] . "</td>";
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['cargo'], 2, ".", ",") . "</td>";
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['abono'], 2, ".", ",") . "</td>";
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['capital'], 2, ".", ",") . "</td>";
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['interes'], 2, ".", ",") . "</td>";
+                            // Para disposiciones, no hay comisiones en el detalle (lo mostramos como 0.00)
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format(isset($detalle['comision']) ? $detalle['comision'] : 0, 2, ".", ",") . "</td>";
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['mora'], 2, ".", ",") . "</td>";
+                            echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['iva'], 2, ".", ",") . "</td>";
+                            echo "</tr>";
+                        }
+                    endforeach;
+                    // Totales de disposiciones (solo si se muestran intereses)
+                    if($solicitud->intereses_visibles == "1"):
+                        echo "<tr>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'></td>";
+                        echo "<td style='padding: 1px; font-size: 8pt; font-weight: bold;'>Totales</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(isset($totalesD['cargo']) ? $totalesD['cargo'] : 0, 2, '.', ',') . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(0, 2, '.', ',') . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(isset($totalesD['capital']) ? $totalesD['capital'] : 0, 2, '.', ',') . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(isset($totalesD['interes']) ? $totalesD['interes'] : 0, 2, '.', ',') . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(0, 2, '.', ',') . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(0, 2, '.', ',') . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt; font-weight: bold;'>" . number_format(isset($totalesD['iva']) ? $totalesD['iva'] : 0, 2, '.', ',') . "</td>";
+                        echo "</tr>";
+                    endif;
+
+                    // Sección Vencimientos
+                    foreach($detalles['detalles_periodo'] as $detalle):
+                        if($detalle['operacion'] != 'vencimiento') continue;
+                        // Acumulación de totales para vencimientos
+                        if($solicitud->intereses_visibles != "1") {
+                            $totales['cargo'] = (isset($totales['cargo']) ? $totales['cargo'] : 0) + $detalle['cargo'];
+                        } else {
+                            $totales['cargo'] = (isset($totales['cargo']) ? $totales['cargo'] : 0) + $detalle['cargo'] - $detalle['capital'];
+                        }
+                        $totales['abono'] = (isset($totales['abono']) ? $totales['abono'] : 0) + $detalle['abono'];
+                        if(in_array($detalle['operacion'], array('vencimiento', 'disposicion'))) {
+                            if($solicitud->intereses_visibles == "1") {
+                                if($detalle['operacion'] == 'disposicion') {
+                                    $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                } else {
+                                    // Filtramos vencimientos fuera del periodo si los intereses son visibles
+                                    if(strtotime($detalle['fecha']) < strtotime($model->fecha_inicio_periodo) || strtotime($detalle['fecha']) > strtotime($model->fecha_fin_periodo)) {
+                                        continue;
+                                    }
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                }
+                            } else {
+                                $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                            }
+                        } elseif($detalle['operacion'] == 'pago') {
+                            $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) - $detalle['capital'];
+                            $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) - $detalle['comision'];
+                            $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) - $detalle['interes'];
+                            $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) - $detalle['mora'];
+                            // Nota: suman $detalle['seguro'] a totales['seguro'] para tipo 8, omitimos para este producto
+                            $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) - $detalle['iva'];
+                        }
+                        // Encabezado de sección Vencimientos
+                        if($detalle['operacion'] != $operacion) {
+                            $operacion = $detalle['operacion'];
+                            echo '<tr><td colspan="9" style="padding: 1px; padding-top: 30px; font-size: 8pt; text-align: center; font-weight: bold;">' . strtoupper($plurales[$detalle['operacion']]) . '</td></tr>';
+                            // Encabezado de columnas para Vencimientos (repetimos para claridad)
+                            echo '<tr>';
+                            echo '<td style="font-weight: bold;">Fecha límite de pago</td>';
+                            echo '<td style="font-weight: bold;">Concepto</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Cargo</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Abono</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Capital</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Interés Ordinario</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Comisiones</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Interés Moratorio</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">IVA</td>';
+                            echo '</tr>';
+                        }
+                        // Filtramos vencimientos fuera de periodo si intereses visibles (ya aplicado arriba)
+                        if($solicitud->intereses_visibles == "1" && (strtotime($detalle['fecha']) < strtotime($model->fecha_inicio_periodo) || strtotime($detalle['fecha']) > strtotime($model->fecha_fin_periodo))) {
+                            continue;
+                        }
+                        // Sub-encabezado de disposición si cambia
+                        if($detalle['disposicion'] != $disposicionKey) {
+                            $disposicionKey = $detalle['disposicion'];
+                            echo '<tr style="background-color: #eee;"><td colspan="9" style="padding: 1px; font-size: 8pt;">';
+                            if($solicitud->id_tipo_amortizacion0->plazo == "Único") {
+                                if($solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) en días") {
+                                    if($detalle['plazo'] == 1) {
+                                        echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: Al vencimiento";
+                                    }
+                                } else {
+                                    echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " Meses";
+                                }
+                            } else {
+                                echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " " . $solicitud->id_tipo_amortizacion0->plazo;
+                            }
+                            echo "</td></tr>";
+                        }
+                        // Registro del vencimiento
+                        echo "<tr>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'>" . date("d/m/Y", strtotime($detalle['fecha'])) . "</td>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'>" . $detalle['concepto'] . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['cargo'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['abono'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['capital'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['interes'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['comision'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['mora'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['iva'], 2, ".", ",") . "</td>";
+                        echo "</tr>";
+                    endforeach;
+
+                    // Sección Pagos
+                    foreach($detalles['detalles_periodo'] as $detalle):
+                        if($detalle['operacion'] != 'pago' || $detalle['abono'] == 0) continue;
+                        // Acumulación de totales para pagos
+                        $totales['cargo'] = (isset($totales['cargo']) ? $totales['cargo'] : 0) + $detalle['cargo'];
+                        $totales['abono'] = (isset($totales['abono']) ? $totales['abono'] : 0) + $detalle['abono'];
+                        if(in_array($detalle['operacion'], array('vencimiento', 'disposicion'))) {
+                            if($solicitud->intereses_visibles == "1") {
+                                if($detalle['operacion'] == 'disposicion') {
+                                    $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                } else {
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                }
+                            } else {
+                                $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                            }
+                        } elseif($detalle['operacion'] == 'pago') {
+                            $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) - $detalle['capital'];
+                            $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) - $detalle['interes'];
+                            $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) - $detalle['comision'];
+                            $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) - $detalle['mora'];
+                            $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) - $detalle['iva'];
+                        }
+                        // Encabezado de sección Pagos
+                        if($detalle['operacion'] != $operacion) {
+                            $operacion = $detalle['operacion'];
+                            echo '<tr><td colspan="9" style="padding: 1px; padding-top: 30px; font-size: 8pt; text-align: center; font-weight: bold;">' . strtoupper($plurales[$detalle['operacion']]) . '</td></tr>';
+                            echo '<tr>';
+                            echo '<td style="font-weight: bold;">Fecha pago</td>';
+                            echo '<td style="font-weight: bold;">Concepto</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Cargo</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Abono</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Capital</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Interés Ordinario</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Comisiones</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">Interés Moratorio</td>';
+                            echo '<td style="font-weight: bold; text-align: right;">IVA</td>';
+                            echo '</tr>';
+                        }
+                        // Sub-encabezado de disposición si cambia
+                        if($detalle['disposicion'] != $disposicionKey) {
+                            $disposicionKey = $detalle['disposicion'];
+                            echo '<tr style="background-color: #eee;"><td colspan="9" style="padding: 1px; font-size: 8pt;">';
+                            if($solicitud->id_tipo_amortizacion0->plazo == "Único") {
+                                if($solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) en días") {
+                                    if($detalle['plazo'] == 1) {
+                                        echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: Al vencimiento";
+                                    }
+                                } else {
+                                    echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " Meses";
+                                }
+                            } else {
+                                echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " " . $solicitud->id_tipo_amortizacion0->plazo;
+                            }
+                            echo "</td></tr>";
+                        }
+                        // Registro del pago
+                        echo "<tr>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'>" . date("d/m/Y", strtotime($detalle['fecha'])) . "</td>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'>" . $detalle['concepto'] . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['cargo'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['abono'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['capital'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['interes'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['comision'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['mora'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['iva'], 2, ".", ",") . "</td>";
+                        echo "</tr>";
+                    endforeach;
+
+                    // Sección Condonaciones
+                    foreach($detalles['detalles_periodo'] as $detalle):
+                        if($detalle['operacion'] != 'condonacion') continue;
+                        // Acumulación de totales para condonaciones
+                        $totales['cargo'] = (isset($totales['cargo']) ? $totales['cargo'] : 0) + $detalle['cargo'];
+                        $totales['abono'] = (isset($totales['abono']) ? $totales['abono'] : 0) + $detalle['abono'];
+                        if(in_array($detalle['operacion'], array('vencimiento', 'disposicion'))) {
+                            if($solicitud->intereses_visibles == "1") {
+                                if($detalle['operacion'] == 'disposicion') {
+                                    $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                } else {
+                                    $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                    $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                    $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                    $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                                }
+                            } else {
+                                $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) + $detalle['capital'];
+                                $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) + $detalle['interes'];
+                                $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) + $detalle['comision'];
+                                $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) + $detalle['mora'];
+                                $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) + $detalle['iva'];
+                            }
+                        } elseif(in_array($detalle['operacion'], array('pago', 'condonacion'))) {
+                            $totales['capital'] = (isset($totales['capital']) ? $totales['capital'] : 0) - $detalle['capital'];
+                            $totales['interes'] = (isset($totales['interes']) ? $totales['interes'] : 0) - $detalle['interes'];
+                            $totales['comision'] = (isset($totales['comision']) ? $totales['comision'] : 0) - $detalle['comision'];
+                            $totales['mora'] = (isset($totales['mora']) ? $totales['mora'] : 0) - $detalle['mora'];
+                            $totales['iva'] = (isset($totales['iva']) ? $totales['iva'] : 0) - $detalle['iva'];
+                        }
+                        // Encabezado de sección Condonaciones
+                        if($detalle['operacion'] != $operacion) {
+                            $operacion = $detalle['operacion'];
+                            echo '<tr><td colspan="9" style="padding: 1px; padding-top: 30px; font-size: 8pt; text-align: center; font-weight: bold;">' . strtoupper($plurales[$detalle['operacion']]) . '</td></tr>';
+                        }
+                        // Sub-encabezado de disposición si cambia
+                        if($detalle['disposicion'] != $disposicionKey) {
+                            $disposicionKey = $detalle['disposicion'];
+                            echo '<tr style="background-color: #eee;"><td colspan="9" style="padding: 1px; font-size: 8pt;">';
+                            if($solicitud->id_tipo_amortizacion0->plazo == "Único") {
+                                if($solicitud->id_tipo_amortizacion0->nombre == "Pago Único (Bullet) en días") {
+                                    if($detalle['plazo'] == 1) {
+                                        echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: Al vencimiento";
+                                    }
+                                } else {
+                                    echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " Meses";
+                                }
+                            } else {
+                                echo "Clave de disposición: " . $detalle['clave_disposicion'] . "    Fecha de disposición: " . $detalle['fecha_disposicion'] . "    Plazo: " . $detalle['plazo'] . " " . $solicitud->id_tipo_amortizacion0->plazo;
+                            }
+                            echo "</td></tr>";
+                        }
+                        // Registro de la condonación
+                        echo "<tr>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'>" . date("d/m/Y", strtotime($detalle['fecha'])) . "</td>";
+                        echo "<td style='padding: 1px; font-size: 8pt;'>" . $detalle['concepto'] . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['cargo'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['abono'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['capital'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['interes'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['comision'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['mora'], 2, ".", ",") . "</td>";
+                        echo "<td style='text-align: right; padding: 1px; font-size: 8pt;'>" . number_format($detalle['iva'], 2, ".", ",") . "</td>";
+                        echo "</tr>";
+                    endforeach;
+                    ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php if($solicitud->id_producto0->mostrar_total_comisiones == "1" && !empty($comisiones)): ?>
+    <div class="row-fluid" style="margin-top: 20px;">
+        <div class="span12">
+            <table style="width: 100%; font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 9pt;">
+                <thead>
+                    <tr>
+                        <td colspan="3" style="text-align: center; font-size: 11pt; background-color: #9C9C9D; color: white;">Comisiones totales</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">Comisión</td>
+                        <td style="font-weight: bold; text-align: right;">Monto</td>
+                        <td style="font-weight: bold; text-align: right;">IVA</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach($comisiones as $nombreComision => $com): ?>
+                    <tr>
+                        <td><?php echo $nombreComision; ?></td>
+                        <td style="font-weight: bold; text-align: right;"><?php echo number_format($com['total'], 2, '.', ','); ?></td>
+                        <td style="font-weight: bold; text-align: right;"><?php echo $com['iva']; ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <pagebreak />
+
+    <style>
+        @page:last {
+            margin-top: 100px;
+            margin-bottom: 60px;
+            margin-left: 20px;
+            margin-right: 20px;
+            font-size: 8pt;
+        }
+    </style>
+
+    <div style="height: 5px;">&nbsp;</div>
+    <div style="margin: 0px 35px;">
+        <div class="row-fluid">
+            <div style="font-size: 11pt; font-weight: bold;"><span style="text-decoration: underline;">Información importante</span></div>
+            <?php if($model->leyenda_cat != ''): ?>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo $model->leyenda_cat; ?></div>
+            <?php endif; ?>
+            <?php if($model->leyenda_tir != ''): ?>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo $model->leyenda_tir; ?></div>
+            <?php endif; ?>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo $model->leyenda_variacion; ?></div>
+        </div>
+        <div class="row-fluid">
+            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px;"><span style="text-decoration: underline;">Aclaraciones</span></div>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo nl2br($model->leyenda_aclaraciones); ?></div>
+        </div>
+        <div class="row-fluid">
+            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px;"><span style="text-decoration: underline;">Unidad Especializada de Atención a Clientes</span></div>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo nl2br($model->leyenda_atencion_clientes); ?></div>
+        </div>
+        <div class="row-fluid">
+            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px;"><span style="text-decoration: underline;">Comisión Nacional para la Protección y Defensa de los Usuarios de Servicios Financieros (CONDUSEF)</span></div>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo nl2br($model->leyenda_condusef); ?></div>
+        </div>
+        <div class="row-fluid">
+            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px;"><span style="text-decoration: underline;">Abreviaturas</span></div>
+            <div style="text-align: justify; font-size: 9pt;"><?php echo $model->leyenda_abreviaturas; ?></div>
+        </div>
+        <div class="row-fluid">
+            <div style="font-size: 10pt; font-weight: bold; margin-top: 10px;"><span style="text-decoration: underline;">Domicilio</span></div>
+            <div style="text-align: justify; font-size: 9pt;">
+                <?php 
+                $empresaDireccion = Empresa::model()->find();
+                echo trim($empresaDireccion->calle . " " . $empresaDireccion->numero_exterior . " " . $empresaDireccion->numero_interior) 
+                    . ", Col. " . $empresaDireccion->colonia 
+                    . ", C.P. " . $empresaDireccion->id_codigo_postal0->codigo_postal 
+                    . ", " . $empresaDireccion->id_estado0->estado . ", México.";
+                ?>
+            </div>
+        </div>
+    </div>
+</div>
