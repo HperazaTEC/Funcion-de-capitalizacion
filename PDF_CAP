@@ -398,7 +398,7 @@ if (!is_numeric($detalles['saldo_linea']['iva_comisiones'])) $detalles['saldo_li
             <table style="width: 100%; font-family: Calibri, sans-serif; color: #7f7f7f; font-size: 9pt;">
                 <tbody>
                     <tr>
-                        <td colspan="7" style="text-align: center; font-size: 11pt; background-color: #9C9C9D; color: white;">Resumen del Periodo</td>
+                        <td colspan="7" style="text-align: center; font-size: 11pt; background-color: #428bca; color: white; font-weight: bold;">Resumen del Periodo</td>
                     </tr>
                     <tr>
                         <td style="font-weight: bold; text-align: left; padding: 0px;">Concepto</td>
