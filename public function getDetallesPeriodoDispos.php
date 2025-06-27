@@ -16,6 +16,9 @@
             'interesMoratorios'  => 0,
             'ivaInteres'         => 0,
             'ivaMoratorio'       => 0,
+            'capitalizado'       => 0,
+            'interes_pagado'     => 0,
+            'interes_pagado_capitalizable' => 0,
         );
 
         $saldoLineaCalculoAnterior = array(
@@ -27,6 +30,9 @@
             'interesMoratorios'  => 0,
             'ivaInteres'         => 0,
             'ivaMoratorio'       => 0,
+            'capitalizado'       => 0,
+            'interes_pagado'     => 0,
+            'interes_pagado_capitalizable' => 0,
         );
 
         foreach ($nuevoCalculoAnterior as $item) {
@@ -58,6 +64,15 @@
                     if($key=="iva_interes_generado") {
                         $saldoLineaCalculoAnterior['iva'] += $value;
                         $ivaInteres = $value;
+                    }
+                    if($key=="capitalizado") {
+                        $saldoLineaCalculoAnterior['capitalizado'] += $value;
+                    }
+                    if($key=="interes_pagado") {
+                        $saldoLineaCalculoAnterior['interes_pagado'] += $value;
+                    }
+                    if($key=="interes_pagado_capitalizable") {
+                        $saldoLineaCalculoAnterior['interes_pagado_capitalizable'] += $value;
                     }
                 }
 
@@ -100,6 +115,15 @@
                     if($key=="iva_interes_generado") {
                         $saldoLineaCalculo['iva'] += $value;
                         $ivaInteres = $value;
+                    }
+                    if($key=="capitalizado") {
+                        $saldoLineaCalculo['capitalizado'] += $value;
+                    }
+                    if($key=="interes_pagado") {
+                        $saldoLineaCalculo['interes_pagado'] += $value;
+                    }
+                    if($key=="interes_pagado_capitalizable") {
+                        $saldoLineaCalculo['interes_pagado_capitalizable'] += $value;
                     }
                 }
 
@@ -396,6 +420,18 @@
             }
         }
 
+        $capitalizacion = $this->calcularCapitalizacion($nuevoCalculoAnterior, $nuevoCalculo);
+        $saldoLineaCalculo['capitalizado'] = $capitalizacion['saldoLineaCalculo']['capitalizado'];
+        $saldoLineaCalculo['interes_pagado'] = $capitalizacion['saldoLineaCalculo']['interes_pagado'];
+        $saldoLineaCalculo['interes_pagado_capitalizable'] = $capitalizacion['saldoLineaCalculo']['interes_pagado_capitalizable'];
+        $saldoLineaCalculoAnterior['capitalizado'] = $capitalizacion['saldoLineaCalculoAnterior']['capitalizado'];
+        $saldoLineaCalculoAnterior['interes_pagado'] = $capitalizacion['saldoLineaCalculoAnterior']['interes_pagado'];
+        $saldoLineaCalculoAnterior['interes_pagado_capitalizable'] = $capitalizacion['saldoLineaCalculoAnterior']['interes_pagado_capitalizable'];
+
+        $periodoCapitalizado  = $saldoLineaCalculo['capitalizado'] - $saldoLineaCalculoAnterior['capitalizado'];
+        $periodoInteresPagado = $saldoLineaCalculo['interes_pagado'] - $saldoLineaCalculoAnterior['interes_pagado'];
+        $periodoInteresPagadoCap = $saldoLineaCalculo['interes_pagado_capitalizable'] - $saldoLineaCalculoAnterior['interes_pagado_capitalizable'];
+
         //NOTA: El saldo de linea y el saldo a pagar son casi iguales, la diferencia es que saldo de linea incluye algunos datos mas.
         //Originalmente el saldo de linea y el saldo a pagar eran diferentes en que el saldo de linea incluia las disposiciones de capital y el saldo a pagar solo incluia los vencimientos de capital.
         $saldoLinea=array(
@@ -420,6 +456,7 @@
                 'cargos'=>0,
                 'abonos'=>0,
                 'saldo_anterior'=>0,
+                'capitalizado'=>0,
             ),
             'mora'=>array(
                 'cargos'=>0,
@@ -437,6 +474,10 @@
                 'saldo_anterior'=>0,
             )
         );
+
+        $resumenPeriodo['interes']['capitalizado'] = $periodoCapitalizado;
+        $saldoLinea['interes_pagado'] = $periodoInteresPagado;
+        $saldoLinea['interes_pagado_capitalizable'] = $periodoInteresPagadoCap;
         $comisionesPeriodo=array(
             //array(),
         );
